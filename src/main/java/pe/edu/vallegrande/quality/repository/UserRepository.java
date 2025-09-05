@@ -1,42 +1,69 @@
 
 package pe.edu.vallegrande.quality.repository;
 
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Repository;
 import pe.edu.vallegrande.quality.model.User;
+
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
+@Slf4j
+@Repository
 public class UserRepository {
-    // Lista en memoria sin sincronización ni persistencia real.
-    private static List<User> l = new ArrayList<>();
 
-    public List<User> getUsers(){
-        return l; // Exposición directa de la lista interna.
+    // Usar ConcurrentHashMap para thread-safety en operaciones concurrentes
+    private final Map<String, User> userStorage = new ConcurrentHashMap<>();
+
+    public List<User> findAll() {
+        log.debug("Obteniendo todos los usuarios");
+        return new ArrayList<>(userStorage.values());
     }
 
-    public User save(User u){
-        // Reglas duplicadas, sin validación real.
-        l.add(u);
-        return u;
-    }
-
-    public Optional<User> findById(String id){
-        for(User u : l){
-            if(u.id != null && u.id.equals(id)){
-                return Optional.of(u);
-            }
+    public User save(User user) {
+        if (user == null) {
+            throw new IllegalArgumentException("El usuario no puede ser null");
         }
-        return Optional.empty();
+
+        if (user.getId() == null || user.getId().trim().isEmpty()) {
+            user.setId(UUID.randomUUID().toString());
+        }
+
+        userStorage.put(user.getId(), user);
+        log.debug("Usuario guardado con ID: {}", user.getId());
+        return user;
     }
 
-    public boolean delete(String id){
-        // Borrado ineficiente.
-        Iterator<User> it = l.iterator();
-        while(it.hasNext()){
-            User u = it.next();
-            if(u.id != null && u.id.equals(id)){
-                it.remove();
-                return true;
-            }
+    public Optional<User> findById(String id) {
+        if (id == null || id.trim().isEmpty()) {
+            return Optional.empty();
         }
-        return false;
+
+        User user = userStorage.get(id);
+        log.debug("Buscando usuario con ID: {}, encontrado: {}", id, user != null);
+        return Optional.ofNullable(user);
+    }
+
+    public boolean deleteById(String id) {
+        if (id == null || id.trim().isEmpty()) {
+            return false;
+        }
+
+        boolean removed = userStorage.remove(id) != null;
+        log.debug("Usuario con ID {} eliminado: {}", id, removed);
+        return removed;
+    }
+
+    public boolean existsById(String id) {
+        return id != null && userStorage.containsKey(id);
+    }
+
+    public long count() {
+        return userStorage.size();
+    }
+
+    public void deleteAll() {
+        userStorage.clear();
+        log.debug("Todos los usuarios eliminados");
     }
 }

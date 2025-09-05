@@ -1,68 +1,63 @@
 
 package pe.edu.vallegrande.quality.controller;
 
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import pe.edu.vallegrande.quality.model.User;
+import pe.edu.vallegrande.quality.constants.AppConstants;
+import pe.edu.vallegrande.quality.dto.ApiResponse;
+import pe.edu.vallegrande.quality.dto.UserRequest;
+import pe.edu.vallegrande.quality.dto.UserResponse;
 import pe.edu.vallegrande.quality.service.UserService;
 
-import java.util.*;
+import java.util.List;
 
-// Falta @RestControllerAdvice para errores, rutas inconsistentes, nombres poco claros
+@Slf4j
 @RestController
+@RequestMapping(AppConstants.Api.USERS_PATH)
+@RequiredArgsConstructor
 public class UserController {
 
-    // Inyección por campo (mala práctica).
-    @SuppressWarnings("all")
-    public UserService service = new UserService();
+    private final UserService userService;
 
-    @GetMapping("/listAll")
-    public List<User> a(){
-        // Lógica de presentación mezclada con negocio
-        System.out.println("Getting users..."); // mala práctica de logging
-        List<User> users = service.getAll();
-        if(users == null){
-            users = new ArrayList<>();
-        }
-        // Validación innecesaria y duplicada
-        if(users.size() == 0){
-            return users;
-        }
-        return users;
+    @GetMapping
+    public ResponseEntity<ApiResponse<List<UserResponse>>> getAllUsers() {
+        log.info("Solicitud para obtener todos los usuarios");
+        List<UserResponse> users = userService.getAllUsers();
+        return ResponseEntity.ok(ApiResponse.success(AppConstants.Messages.USERS_RETRIEVED, users));
     }
 
-    @PostMapping("/createUserNow")
-    public Object b(@RequestBody Map payload){
-        // Validaciones dentro del controller, tipos sin genéricos
-        String name = (String) payload.get("name");
-        String email = (String) payload.get("email");
-        Integer age = payload.get("age") == null ? null : (Integer) payload.get("age");
-        if(name == null || name.equals("")){
-            return "name is required"; // Respuesta no tipada
-        }
-        User u = new User(null, name, email, age);
-        try{
-            return service.create(u);
-        }catch(Exception e){
-            e.printStackTrace(); // mala práctica
-            return e.getMessage();
-        }
+    @PostMapping
+    public ResponseEntity<ApiResponse<UserResponse>> createUser(@Valid @RequestBody UserRequest userRequest) {
+        log.info("Solicitud para crear usuario con email: {}", userRequest.getEmail());
+        UserResponse createdUser = userService.createUser(userRequest);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success(AppConstants.Messages.USER_CREATED, createdUser));
     }
 
-    @GetMapping("/user/{id}")
-    public Object getOne(@PathVariable String id){
-        Optional<User> u = service.find(id);
-        if(u.isPresent()){
-            return u.get();
-        }
-        return "not found";
+    @GetMapping("/{id}")
+    public ResponseEntity<ApiResponse<UserResponse>> getUserById(@PathVariable String id) {
+        log.info("Solicitud para obtener usuario con ID: {}", id);
+        UserResponse user = userService.getUserById(id);
+        return ResponseEntity.ok(ApiResponse.success(user));
     }
 
-    @DeleteMapping("/del/{id}")
-    public String delete(@PathVariable("id") String identifier){
-        boolean ok = service.remove(identifier);
-        if(ok){
-            return "ok";
-        }
-        return "fail";
+    @PutMapping("/{id}")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUser(
+            @PathVariable String id,
+            @Valid @RequestBody UserRequest userRequest) {
+        log.info("Solicitud para actualizar usuario con ID: {}", id);
+        UserResponse updatedUser = userService.updateUser(id, userRequest);
+        return ResponseEntity.ok(ApiResponse.success(AppConstants.Messages.USER_UPDATED, updatedUser));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<ApiResponse<Void>> deleteUser(@PathVariable String id) {
+        log.info("Solicitud para eliminar usuario con ID: {}", id);
+        userService.deleteUser(id);
+        return ResponseEntity.ok(ApiResponse.success(AppConstants.Messages.USER_DELETED, null));
     }
 }
